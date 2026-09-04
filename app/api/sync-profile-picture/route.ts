@@ -27,9 +27,14 @@ export async function POST(request: NextRequest) {
 
     // Update Clerk profile image (imageUrl can be null to clear it)
     try {
-      await clerkClient().users.updateUser(targetUserId, {
-        imageUrl: imageUrl || null,
-      });
+      const clerk = await clerkClient();
+      if (imageUrl) {
+        await clerk.users.updateUserProfileImage(targetUserId, {
+          file: await (await fetch(imageUrl)).blob(),
+        });
+      } else {
+        await clerk.users.deleteUserProfileImage(targetUserId);
+      }
 
       return NextResponse.json({
         success: true,

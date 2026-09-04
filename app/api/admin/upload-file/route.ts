@@ -176,8 +176,8 @@ export async function POST(request: NextRequest) {
 
             // Update Clerk profile image
             try {
-              await clerkClient().users.updateUser(targetUserId, {
-                imageUrl: fileUrl,
+              await (await clerkClient()).users.updateUserProfileImage(targetUserId, {
+                file: await (await fetch(fileUrl)).blob(),
               });
             } catch (clerkError: any) {
               console.error("Error updating Clerk profile image:", clerkError);

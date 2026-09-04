@@ -69,10 +69,8 @@ export async function POST(request: NextRequest) {
         // Also update Clerk
         try {
           const { clerkClient } = await import("@clerk/nextjs/server");
-          const clerk = clerkClient();
-          await clerk.users.updateUser(userId, {
-            imageUrl: null,
-          });
+          const clerk = await clerkClient();
+          await clerk.users.deleteUserProfileImage(userId);
         } catch (clerkError: any) {
           console.error("Error updating Clerk:", clerkError);
           // Don't fail the request if Clerk update fails - it's not critical

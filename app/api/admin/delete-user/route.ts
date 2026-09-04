@@ -9,7 +9,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 export async function DELETE(request: NextRequest) {
   try {
     const { userId } = await auth();
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -51,7 +51,9 @@ export async function DELETE(request: NextRequest) {
 
     // Use service role client to bypass RLS
     const storageClient = createServiceRoleClient();
-    const clerk = clerkClient();
+
+    // clerkClient() is async in the installed Clerk version
+    const clerk = await clerkClient();
 
     // Get all files for the user
     const { data: userFiles } = await storageClient
@@ -62,14 +64,16 @@ export async function DELETE(request: NextRequest) {
     // Delete all files from storage
     if (userFiles && userFiles.length > 0) {
       const filesByBucket = new Map<string, string[]>();
-      
+
       userFiles.forEach((file: any) => {
         const bucket = file.bucket_name;
         const path = file.object_path || file.file_path;
+
         if (bucket && path) {
           if (!filesByBucket.has(bucket)) {
             filesByBucket.set(bucket, []);
           }
+
           filesByBucket.get(bucket)!.push(path);
         }
       });
@@ -81,14 +85,18 @@ export async function DELETE(request: NextRequest) {
             .from(bucket)
             .remove(paths);
         } catch (error) {
-          console.error(`Error deleting files from bucket ${bucket}:`, error);
+          console.error(
+            `Error deleting files from bucket ${bucket}:`,
+            error
+          );
+
           // Continue even if some deletions fail
         }
       }
     }
 
-    // Delete all database records (cascade will handle related data)
-    // The profile deletion will cascade to:
+    // Delete all database records
+    // The profile deletion will cascade to related data such as:
     // - storage_files
     // - follows
     // - posts
@@ -106,8 +114,12 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteError) {
       console.error("Error deleting profile:", deleteError);
+
       return NextResponse.json(
-        { error: "Failed to delete user data", details: deleteError.message },
+        {
+          error: "Failed to delete user data",
+          details: deleteError.message,
+        },
         { status: 500 }
       );
     }
@@ -117,7 +129,9 @@ export async function DELETE(request: NextRequest) {
       await clerk.users.deleteUser(targetUserId);
     } catch (clerkError: any) {
       console.error("Error deleting Clerk user:", clerkError);
-      // Continue even if Clerk deletion fails - data is already deleted
+
+      // Continue even if Clerk deletion fails -
+      // Supabase data has already been deleted.
     }
 
     // Log admin action
@@ -127,11 +141,14 @@ export async function DELETE(request: NextRequest) {
         p_action_type: "user_deleted",
         p_target_user_id: targetUserId,
         p_target_id: null,
-        p_details: { deleted_at: new Date().toISOString() },
+        p_details: {
+          deleted_at: new Date().toISOString(),
+        },
       });
     } catch (logError) {
       console.error("Error logging admin action:", logError);
-      // Don't fail if logging fails
+
+      // Don't fail the deletion if logging fails
     }
 
     return NextResponse.json({
@@ -140,14 +157,13 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Delete user error:", error);
+
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      {
+        error: "Internal server error",
+        details: error.message,
+      },
       { status: 500 }
     );
   }
 }
-
-
-
-
-

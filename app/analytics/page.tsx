@@ -8,11 +8,11 @@ import { PostPerformanceChart } from "@/components/PostPerformanceChart";
 import { ReactionAnalytics } from "@/components/ReactionAnalytics";
 import { hasFeatureAccess } from "@/lib/utils/subscriptionFeatures";
 import Link from "next/link";
-import { 
-  Eye, 
-  UserPlus, 
-  Star, 
-  TrendingUp, 
+import {
+  Eye,
+  UserPlus,
+  Star,
+  TrendingUp,
   MessageSquare,
   Briefcase,
   Share2,
@@ -20,7 +20,7 @@ import {
   ThumbsUp,
   BarChart3,
   Users,
-  Target
+  Target,
 } from "lucide-react";
 
 export default async function AnalyticsPage() {
@@ -45,7 +45,19 @@ export default async function AnalyticsPage() {
 
   // Check if user has advanced analytics
   const userPlan = profile.subscription_plan || "free";
-  const hasAdvancedAnalytics = hasFeatureAccess(userPlan, "advancedAnalytics");
+  const hasAdvancedAnalytics = hasFeatureAccess(
+    userPlan,
+    "advancedAnalytics"
+  );
+
+  // Date ranges used throughout analytics
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  fourteenDaysAgo.setHours(0, 0, 0, 0);
 
   // Get statistics
   const { count: followersCount } = await supabase
@@ -75,11 +87,13 @@ export default async function AnalyticsPage() {
   let previousPortfolioViews = 0;
   let recentPortfolioSeens = 0;
   let previousPortfolioSeens = 0;
+
   try {
     const { count: views } = await supabase
       .from("portfolio_views")
       .select("*", { count: "exact", head: true })
       .eq("portfolio_owner_id", userId);
+
     portfolioViewsCount = views || 0;
 
     const { count: seens } = await supabase
@@ -87,6 +101,7 @@ export default async function AnalyticsPage() {
       .select("*", { count: "exact", head: true })
       .eq("portfolio_owner_id", userId)
       .eq("marked_seen", true);
+
     portfolioSeensCount = seens || 0;
 
     // Recent portfolio views (last 7 days)
@@ -95,6 +110,7 @@ export default async function AnalyticsPage() {
       .select("*", { count: "exact", head: true })
       .eq("portfolio_owner_id", userId)
       .gte("viewed_at", sevenDaysAgo.toISOString());
+
     recentPortfolioViews = recentViews || 0;
 
     // Previous period portfolio views (7-14 days ago)
@@ -104,6 +120,7 @@ export default async function AnalyticsPage() {
       .eq("portfolio_owner_id", userId)
       .gte("viewed_at", fourteenDaysAgo.toISOString())
       .lt("viewed_at", sevenDaysAgo.toISOString());
+
     previousPortfolioViews = previousViews || 0;
 
     // Recent portfolio seens (last 7 days)
@@ -113,6 +130,7 @@ export default async function AnalyticsPage() {
       .eq("portfolio_owner_id", userId)
       .eq("marked_seen", true)
       .gte("seen_at", sevenDaysAgo.toISOString());
+
     recentPortfolioSeens = recentSeens || 0;
 
     // Previous period portfolio seens (7-14 days ago)
@@ -123,6 +141,7 @@ export default async function AnalyticsPage() {
       .eq("marked_seen", true)
       .gte("seen_at", fourteenDaysAgo.toISOString())
       .lt("seen_at", sevenDaysAgo.toISOString());
+
     previousPortfolioSeens = previousSeens || 0;
   } catch (error) {
     // Ignore if table doesn't exist
@@ -147,7 +166,7 @@ export default async function AnalyticsPage() {
 
   if (userPosts && userPosts.length > 0) {
     const postIds = userPosts.map((p: any) => p.id);
-    
+
     const { count: viewsCount } = await supabase
       .from("post_views")
       .select("*", { count: "exact", head: true })
@@ -155,11 +174,13 @@ export default async function AnalyticsPage() {
 
     // Get reactions count (try post_reactions first, fallback to post_likes)
     let reactionsCount = 0;
+
     try {
       const { count } = await supabase
         .from("post_reactions")
         .select("*", { count: "exact", head: true })
         .in("post_id", postIds);
+
       reactionsCount = count || 0;
     } catch (error) {
       // Fallback to post_likes if post_reactions doesn't exist
@@ -167,6 +188,7 @@ export default async function AnalyticsPage() {
         .from("post_likes")
         .select("*", { count: "exact", head: true })
         .in("post_id", postIds);
+
       reactionsCount = count || 0;
     }
 
@@ -177,11 +199,13 @@ export default async function AnalyticsPage() {
 
     // Get shares count
     let sharesCount = 0;
+
     try {
       const { count } = await supabase
         .from("reposts")
         .select("*", { count: "exact", head: true })
         .in("original_post_id", postIds);
+
       sharesCount = count || 0;
     } catch (error) {
       // Ignore if table doesn't exist
@@ -194,20 +218,14 @@ export default async function AnalyticsPage() {
   }
 
   // Calculate metrics
-  const avgRating = reviews && reviews.length > 0
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
-    : "0.0";
+  const avgRating =
+    reviews && reviews.length > 0
+      ? (
+          reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+        ).toFixed(1)
+      : "0.0";
 
   const totalReviews = reviews?.length || 0;
-
-  // Get recent activity counts (last 7 days) and previous period (7-14 days ago) for comparison
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-  fourteenDaysAgo.setHours(0, 0, 0, 0);
 
   // Recent followers (last 7 days)
   const { count: recentFollowers } = await supabase
@@ -252,9 +270,17 @@ export default async function AnalyticsPage() {
     .eq("follower_id", userId)
     .gte("created_at", sevenDaysAgo.toISOString());
 
-  const recentFollowingMeIds = new Set(recentFollowingMe?.map((f: any) => f.follower_id) || []);
-  const recentIAmFollowingIds = new Set(recentIAmFollowing?.map((f: any) => f.following_id) || []);
-  const recentConnections = Array.from(recentFollowingMeIds).filter((id: string) => recentIAmFollowingIds.has(id)).length;
+  const recentFollowingMeIds = new Set(
+    recentFollowingMe?.map((f: any) => f.follower_id) || []
+  );
+
+  const recentIAmFollowingIds = new Set(
+    recentIAmFollowing?.map((f: any) => f.following_id) || []
+  );
+
+  const recentConnections = Array.from(recentFollowingMeIds).filter(
+    (id: string) => recentIAmFollowingIds.has(id)
+  ).length;
 
   // Previous period connections
   const { data: prevFollowingMe } = await supabase
@@ -271,9 +297,17 @@ export default async function AnalyticsPage() {
     .gte("created_at", fourteenDaysAgo.toISOString())
     .lt("created_at", sevenDaysAgo.toISOString());
 
-  const prevFollowingMeIds = new Set(prevFollowingMe?.map((f: any) => f.follower_id) || []);
-  const prevIAmFollowingIds = new Set(prevIAmFollowing?.map((f: any) => f.following_id) || []);
-  const previousConnections = Array.from(prevFollowingMeIds).filter((id: string) => prevIAmFollowingIds.has(id)).length;
+  const prevFollowingMeIds = new Set(
+    prevFollowingMe?.map((f: any) => f.follower_id) || []
+  );
+
+  const prevIAmFollowingIds = new Set(
+    prevIAmFollowing?.map((f: any) => f.following_id) || []
+  );
+
+  const previousConnections = Array.from(prevFollowingMeIds).filter(
+    (id: string) => prevIAmFollowingIds.has(id)
+  ).length;
 
   // Recent posts (last 7 days)
   const { count: recentPosts } = await supabase
@@ -293,14 +327,16 @@ export default async function AnalyticsPage() {
   // Recent post views (last 7 days)
   let recentViews = 0;
   let previousViews = 0;
+
   if (userPosts && userPosts.length > 0) {
     const postIds = userPosts.map((p: any) => p.id);
-    
+
     const { count: recentViewsCount } = await supabase
       .from("post_views")
       .select("*", { count: "exact", head: true })
       .in("post_id", postIds)
       .gte("viewed_at", sevenDaysAgo.toISOString());
+
     recentViews = recentViewsCount || 0;
 
     const { count: previousViewsCount } = await supabase
@@ -309,21 +345,24 @@ export default async function AnalyticsPage() {
       .in("post_id", postIds)
       .gte("viewed_at", fourteenDaysAgo.toISOString())
       .lt("viewed_at", sevenDaysAgo.toISOString());
+
     previousViews = previousViewsCount || 0;
   }
 
   // Recent reactions (last 7 days)
   let recentReactions = 0;
   let previousReactions = 0;
+
   if (userPosts && userPosts.length > 0) {
     const postIds = userPosts.map((p: any) => p.id);
-    
+
     try {
       const { count: recentReactionsCount } = await supabase
         .from("post_reactions")
         .select("*", { count: "exact", head: true })
         .in("post_id", postIds)
         .gte("created_at", sevenDaysAgo.toISOString());
+
       recentReactions = recentReactionsCount || 0;
 
       const { count: previousReactionsCount } = await supabase
@@ -332,6 +371,7 @@ export default async function AnalyticsPage() {
         .in("post_id", postIds)
         .gte("created_at", fourteenDaysAgo.toISOString())
         .lt("created_at", sevenDaysAgo.toISOString());
+
       previousReactions = previousReactionsCount || 0;
     } catch (error) {
       // Fallback to post_likes
@@ -340,6 +380,7 @@ export default async function AnalyticsPage() {
         .select("*", { count: "exact", head: true })
         .in("post_id", postIds)
         .gte("created_at", sevenDaysAgo.toISOString());
+
       recentReactions = recentLikesCount || 0;
 
       const { count: previousLikesCount } = await supabase
@@ -348,6 +389,7 @@ export default async function AnalyticsPage() {
         .in("post_id", postIds)
         .gte("created_at", fourteenDaysAgo.toISOString())
         .lt("created_at", sevenDaysAgo.toISOString());
+
       previousReactions = previousLikesCount || 0;
     }
   }
@@ -355,14 +397,16 @@ export default async function AnalyticsPage() {
   // Recent comments (last 7 days)
   let recentComments = 0;
   let previousComments = 0;
+
   if (userPosts && userPosts.length > 0) {
     const postIds = userPosts.map((p: any) => p.id);
-    
+
     const { count: recentCommentsCount } = await supabase
       .from("post_comments")
       .select("*", { count: "exact", head: true })
       .in("post_id", postIds)
       .gte("created_at", sevenDaysAgo.toISOString());
+
     recentComments = recentCommentsCount || 0;
 
     const { count: previousCommentsCount } = await supabase
@@ -371,21 +415,24 @@ export default async function AnalyticsPage() {
       .in("post_id", postIds)
       .gte("created_at", fourteenDaysAgo.toISOString())
       .lt("created_at", sevenDaysAgo.toISOString());
+
     previousComments = previousCommentsCount || 0;
   }
 
   // Recent shares (last 7 days)
   let recentShares = 0;
   let previousShares = 0;
+
   if (userPosts && userPosts.length > 0) {
     const postIds = userPosts.map((p: any) => p.id);
-    
+
     try {
       const { count: recentSharesCount } = await supabase
         .from("reposts")
         .select("*", { count: "exact", head: true })
         .in("original_post_id", postIds)
         .gte("created_at", sevenDaysAgo.toISOString());
+
       recentShares = recentSharesCount || 0;
 
       const { count: previousSharesCount } = await supabase
@@ -394,6 +441,7 @@ export default async function AnalyticsPage() {
         .in("original_post_id", postIds)
         .gte("created_at", fourteenDaysAgo.toISOString())
         .lt("created_at", sevenDaysAgo.toISOString());
+
       previousShares = previousSharesCount || 0;
     } catch (error) {
       // Ignore if table doesn't exist
@@ -401,25 +449,53 @@ export default async function AnalyticsPage() {
   }
 
   // Calculate percentage changes
-  const calculateChange = (current: number, previous: number): number | undefined => {
+  const calculateChange = (
+    current: number,
+    previous: number
+  ): number | undefined => {
     if (previous === 0) {
       return current > 0 ? 100 : undefined;
     }
+
     return Math.round(((current - previous) / previous) * 100);
   };
 
-  const connectionsChange = calculateChange(recentConnections, previousConnections);
-  const followersChange = calculateChange(recentFollowers || 0, previousFollowers || 0);
-  const reviewsChange = calculateChange(recentReviews || 0, previousReviews || 0);
-  const postsChange = calculateChange(recentPosts || 0, previousPosts || 0);
+  const connectionsChange = calculateChange(
+    recentConnections,
+    previousConnections
+  );
+  const followersChange = calculateChange(
+    recentFollowers || 0,
+    previousFollowers || 0
+  );
+  const reviewsChange = calculateChange(
+    recentReviews || 0,
+    previousReviews || 0
+  );
+  const postsChange = calculateChange(
+    recentPosts || 0,
+    previousPosts || 0
+  );
   const viewsChange = calculateChange(recentViews, previousViews);
-  const reactionsChange = calculateChange(recentReactions, previousReactions);
-  const commentsChange = calculateChange(recentComments, previousComments);
+  const reactionsChange = calculateChange(
+    recentReactions,
+    previousReactions
+  );
+  const commentsChange = calculateChange(
+    recentComments,
+    previousComments
+  );
   const sharesChange = calculateChange(recentShares, previousShares);
-  const portfolioViewsChange = calculateChange(recentPortfolioViews, previousPortfolioViews);
-  const portfolioSeensChange = calculateChange(recentPortfolioSeens, previousPortfolioSeens);
+  const portfolioViewsChange = calculateChange(
+    recentPortfolioViews,
+    previousPortfolioViews
+  );
+  const portfolioSeensChange = calculateChange(
+    recentPortfolioSeens,
+    previousPortfolioSeens
+  );
 
-  // Get total connections count (mutual follows) - using the data we already have
+  // Get total connections count (mutual follows)
   const { data: followingMe } = await supabase
     .from("follows")
     .select("follower_id")
@@ -430,9 +506,17 @@ export default async function AnalyticsPage() {
     .select("following_id")
     .eq("follower_id", userId);
 
-  const followingMeIds = new Set(followingMe?.map((f: any) => f.follower_id) || []);
-  const iAmFollowingIds = new Set(iAmFollowing?.map((f: any) => f.following_id) || []);
-  const connectionsCount = Array.from(followingMeIds).filter((id: string) => iAmFollowingIds.has(id)).length;
+  const followingMeIds = new Set(
+    followingMe?.map((f: any) => f.follower_id) || []
+  );
+
+  const iAmFollowingIds = new Set(
+    iAmFollowing?.map((f: any) => f.following_id) || []
+  );
+
+  const connectionsCount = Array.from(followingMeIds).filter(
+    (id: string) => iAmFollowingIds.has(id)
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 py-8">
@@ -440,13 +524,20 @@ export default async function AnalyticsPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold gradient-text mb-2">Analytics Dashboard</h1>
+              <h1 className="text-4xl font-bold gradient-text mb-2">
+                Analytics Dashboard
+              </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                Track your profile performance and engagement • Percentage changes compare Last 7 Days vs Previous 7 Days
+                Track your profile performance and engagement • Percentage
+                changes compare Last 7 Days vs Previous 7 Days
               </p>
             </div>
+
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Time Period:</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Time Period:
+              </label>
+
               <select
                 disabled
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold cursor-not-allowed opacity-50"
@@ -469,6 +560,7 @@ export default async function AnalyticsPage() {
             subtitle="Mutual follows"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Total Followers"
             value={followersCount || 0}
@@ -477,12 +569,14 @@ export default async function AnalyticsPage() {
             color="blue"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Average Rating"
             value={avgRating}
             icon={<Star className="w-6 h-6" />}
             color="yellow"
           />
+
           <AnalyticsCard
             title="Total Reviews"
             value={totalReviews}
@@ -503,6 +597,7 @@ export default async function AnalyticsPage() {
             color="blue"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Post Views"
             value={totalPostViews}
@@ -511,6 +606,7 @@ export default async function AnalyticsPage() {
             color="indigo"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Post Reactions"
             value={totalPostLikes}
@@ -519,6 +615,7 @@ export default async function AnalyticsPage() {
             color="blue"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Post Comments"
             value={totalPostComments}
@@ -527,6 +624,7 @@ export default async function AnalyticsPage() {
             color="green"
             timePeriod="7d"
           />
+
           <AnalyticsCard
             title="Post Shares"
             value={totalPostShares}
@@ -549,6 +647,7 @@ export default async function AnalyticsPage() {
             timePeriod="7 days"
             tooltip="This is the total number of times users have viewed your portfolio. Each unique user viewing your portfolio counts as one view."
           />
+
           <AnalyticsCard
             title="Portfolio Seens"
             value={portfolioSeensCount}
@@ -559,6 +658,7 @@ export default async function AnalyticsPage() {
             timePeriod="7 days"
             tooltip="This is the number of users who have clicked the 'Mark as Seen' button on your portfolio. Once a user marks your portfolio as seen, they cannot unmark it."
           />
+
           <AnalyticsCard
             title="Portfolio Items"
             value={portfolioCount || 0}
@@ -601,12 +701,16 @@ export default async function AnalyticsPage() {
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl shadow-lg p-8 border-2 border-indigo-200 dark:border-indigo-800 mb-8">
             <div className="text-center">
               <BarChart3 className="w-16 h-16 text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Unlock Advanced Analytics
               </h3>
+
               <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
-                Get detailed insights into your network growth, engagement metrics, and reaction analytics with Pro or Ultimate plans.
+                Get detailed insights into your network growth, engagement
+                metrics, and reaction analytics with Pro or Ultimate plans.
               </p>
+
               <Link
                 href="/pricing"
                 className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
@@ -624,32 +728,44 @@ export default async function AnalyticsPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
               Engagement Overview
             </h2>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <UserPlus className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Following</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Following
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
                   {followingCount || 0}
                 </span>
               </div>
+
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Star className="w-5 h-5 text-yellow-500" />
-                  <span className="text-gray-700 dark:text-gray-300">5-Star Reviews</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    5-Star Reviews
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
                   {reviews?.filter((r: any) => r.rating === 5).length || 0}
                 </span>
               </div>
+
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700 dark:text-gray-300">Profile Views</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Profile Views
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
-                  {followersCount ? (followersCount * 3) : 0}
+                  {followersCount ? followersCount * 3 : 0}
                 </span>
               </div>
             </div>
@@ -660,30 +776,42 @@ export default async function AnalyticsPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
               Recent Activity (7 Days)
             </h2>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <UserPlus className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-gray-700 dark:text-gray-300">New Followers</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    New Followers
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
                   +{recentFollowers || 0}
                 </span>
               </div>
+
               <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Star className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-gray-700 dark:text-gray-300">New Reviews</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    New Reviews
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
                   +{recentReviews || 0}
                 </span>
               </div>
+
               <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Profile Completion</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Profile Completion
+                  </span>
                 </div>
+
                 <span className="text-xl font-bold text-green-600 dark:text-green-400">
                   {profile.bio && (portfolioCount || 0) > 0 ? "100%" : "60%"}
                 </span>
@@ -703,24 +831,32 @@ export default async function AnalyticsPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
               Rating Distribution
             </h2>
+
             <div className="space-y-3">
               {[5, 4, 3, 2, 1].map((rating) => {
-                const count = reviews?.filter((r: any) => r.rating === rating).length || 0;
-                const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                const count =
+                  reviews?.filter((r: any) => r.rating === rating).length || 0;
+
+                const percentage =
+                  totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+
                 return (
                   <div key={rating} className="flex items-center gap-4">
                     <div className="flex items-center gap-1 w-20">
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {rating}
                       </span>
+
                       <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                     </div>
+
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-yellow-500 h-full rounded-full transition-all duration-500"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
+
                     <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
                       {count}
                     </span>
@@ -734,4 +870,3 @@ export default async function AnalyticsPage() {
     </div>
   );
 }
-

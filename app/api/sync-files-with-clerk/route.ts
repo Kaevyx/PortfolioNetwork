@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     };
 
-    const clerk = clerkClient();
+    const clerk = await clerkClient();
 
     // Update each profile's Clerk image
     for (const profile of profiles || []) {
       try {
-        await clerk.users.updateUser(profile.clerk_id, {
-          imageUrl: profile.avatar_url,
+        await clerk.users.updateUserProfileImage(profile.clerk_id, {
+          file: await (await fetch(profile.avatar_url)).blob(),
         });
         results.successful++;
       } catch (error: any) {

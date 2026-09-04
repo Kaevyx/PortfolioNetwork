@@ -16,7 +16,8 @@ import {
   Ticket,
   Hash,
   Bookmark,
-  TrendingUp
+  TrendingUp,
+  LinkIcon
 } from "lucide-react";
 import Link from "next/link";
 

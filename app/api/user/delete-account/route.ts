@@ -29,7 +29,7 @@ export async function DELETE(request: NextRequest) {
 
     // Use service role client to bypass RLS
     const storageClient = createServiceRoleClient();
-    const clerk = clerkClient();
+    const clerk = await clerkClient();
 
     // Get all files for the user
     const { data: userFiles } = await storageClient

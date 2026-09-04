@@ -34,7 +34,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filePath = searchParams.get("filePath");
     const bucketName = searchParams.get("bucketName");
-    const targetUserId = searchParams.get("targetUserId"); // Optional: if provided, verify file belongs to this user
+    const targetUserId = searchParams.get("targetUserId");
 
     if (!filePath || !bucketName) {
       return NextResponse.json(
@@ -68,10 +68,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Prevent deletion of profile pictures - users must have a profile picture
-    // But admins can delete them if needed (e.g., for moderation)
-    // We'll allow it but warn the admin
-
     // Delete from storage
     const { error: deleteError } = await storageClient.storage
       .from(bucketName)
@@ -79,13 +75,17 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteError) {
       console.error("Delete error:", deleteError);
+
       return NextResponse.json(
-        { error: "Failed to delete file", details: deleteError.message },
+        {
+          error: "Failed to delete file",
+          details: deleteError.message,
+        },
         { status: 500 }
       );
     }
 
-    // If this was a profile picture, check if it's the current avatar and clear it
+    // If this was a profile picture, clear the avatar reference
     if (fileRecord.file_type === "profile_picture") {
       try {
         const { data: userProfile } = await storageClient
@@ -94,41 +94,54 @@ export async function DELETE(request: NextRequest) {
           .eq("clerk_id", fileRecord.user_id)
           .single();
 
-        if (userProfile?.avatar_url && (userProfile.avatar_url.includes(filePath) || userProfile.avatar_url.includes(fileRecord.file_name))) {
-          // Clear avatar_url
-          await storageClient
+        if (
+          userProfile?.avatar_url &&
+          (
+            userProfile.avatar_url.includes(filePath) ||
+            userProfile.avatar_url.includes(fileRecord.file_name)
+          )
+        ) {
+          // Clear avatar_url in Supabase
+          const { error: avatarError } = await storageClient
             .from("profiles")
             .update({ avatar_url: null })
             .eq("clerk_id", fileRecord.user_id);
 
-          // Also update Clerk
-          try {
-            const { clerkClient } = await import("@clerk/nextjs/server");
-            const clerk = clerkClient();
-            await clerk.users.updateUser(fileRecord.user_id, {
-              imageUrl: null,
-            });
-          } catch (clerkError: any) {
-            console.error("Error updating Clerk:", clerkError);
-            // Don't fail the request if Clerk update fails
+          if (avatarError) {
+            console.error(
+              "Error clearing avatar_url:",
+              avatarError
+            );
           }
         }
       } catch (profileError) {
-        console.error("Error clearing profile avatar:", profileError);
+        console.error(
+          "Error clearing profile avatar:",
+          profileError
+        );
+
         // Continue even if this fails
       }
     }
 
-    // Delete from database (trigger will update storage_usage)
+    // Delete from database
+    // Trigger will update storage_usage
     const { error: dbError } = await storageClient
       .from("storage_files")
       .delete()
       .eq("id", fileRecord.id);
 
     if (dbError) {
-      console.error("Database delete error:", dbError);
+      console.error(
+        "Database delete error:",
+        dbError
+      );
+
       return NextResponse.json(
-        { error: "Failed to remove file record", details: dbError.message },
+        {
+          error: "Failed to remove file record",
+          details: dbError.message,
+        },
         { status: 500 }
       );
     }
@@ -139,20 +152,29 @@ export async function DELETE(request: NextRequest) {
       .select("file_size")
       .eq("user_id", fileRecord.user_id);
 
-    const recalculatedBytes = remainingFiles?.reduce((sum, f) => sum + (f.file_size || 0), 0) || 0;
-    const recalculatedCount = remainingFiles?.length || 0;
+    const recalculatedBytes =
+      remainingFiles?.reduce(
+        (sum, file) => sum + (file.file_size || 0),
+        0
+      ) || 0;
+
+    const recalculatedCount =
+      remainingFiles?.length || 0;
 
     // Update storage_usage table
     await storageClient
       .from("storage_usage")
-      .upsert({
-        user_id: fileRecord.user_id,
-        total_bytes: recalculatedBytes,
-        file_count: recalculatedCount,
-        last_updated: new Date().toISOString(),
-      }, {
-        onConflict: "user_id"
-      });
+      .upsert(
+        {
+          user_id: fileRecord.user_id,
+          total_bytes: recalculatedBytes,
+          file_count: recalculatedCount,
+          last_updated: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id",
+        }
+      );
 
     return NextResponse.json({
       success: true,
@@ -160,14 +182,13 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Delete error:", error);
+
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      {
+        error: "Internal server error",
+        details: error.message,
+      },
       { status: 500 }
     );
   }
 }
-
-
-
-
-

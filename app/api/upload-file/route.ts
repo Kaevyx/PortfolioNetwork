@@ -339,8 +339,8 @@ export async function POST(request: NextRequest) {
 
             // Update Clerk profile image
             try {
-              await clerkClient().users.updateUser(userId, {
-                imageUrl: fileUrl,
+              await (await clerkClient()).users.updateUserProfileImage(userId, {
+                file: await (await fetch(fileUrl)).blob(),
               });
             } catch (clerkError: any) {
               console.error("Error updating Clerk profile image:", clerkError);
@@ -561,9 +561,14 @@ export async function DELETE(request: NextRequest) {
 
           // Update Clerk profile image
           try {
-            await clerkClient().users.updateUser(userId, {
-              imageUrl: newAvatarUrl || null,
-            });
+            const clerk = await clerkClient();
+            if (newAvatarUrl) {
+              await clerk.users.updateUserProfileImage(userId, {
+                file: await (await fetch(newAvatarUrl)).blob(),
+              });
+            } else {
+              await clerk.users.deleteUserProfileImage(userId);
+            }
             console.log(`Updated Clerk imageUrl to: ${newAvatarUrl || 'null'} for user ${userId}`);
           } catch (clerkError: any) {
             console.error("Error updating Clerk profile image after deletion:", clerkError);

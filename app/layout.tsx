@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   description: "A professional portfolio and networking platform for individuals and businesses",
 };
 
+// Pages depend on request-scoped Clerk and Supabase state and should not be
+// executed during static generation (which may not have runtime credentials).
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -264,7 +264,7 @@ export function AdminAnnouncements({ supabase, currentUserId }: AdminAnnouncemen
     setShowCreateModal(true);
   };
 
-  const useTemplate = (template: Template) => {
+  const applyTemplate = (template: Template) => {
     setFormData({
       title: template.title,
       content: template.content,
@@ -931,7 +931,7 @@ export function AdminAnnouncements({ supabase, currentUserId }: AdminAnnouncemen
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => useTemplate(template)}
+                            onClick={() => applyTemplate(template)}
                             className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
                             title="Use Template"
                           >
